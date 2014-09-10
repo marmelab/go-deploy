@@ -15,18 +15,14 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	if r.Method == "POST" {
-		var testJson string
-		testJson = `{"GitRef":"alexisjanvier/projettest","Branch":"master", "Tag":"", "Target":"master"}`
-		byt := []byte(testJson)
+		decoder := json.NewDecoder(r.Body)
 		var newDeploy deployment.Deployment
-
-		if err := json.Unmarshal(byt, &newDeploy); err != nil {
+		if err := decoder.Decode(&newDeploy); err != nil {
 			panic(err)
 		}
 		if jsonValid, erroMsg := newDeploy.IsValid(); !jsonValid {
 			panic(erroMsg)
 		}
-
 		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", newDeploy.Target)
 	} else {
 		http.Error(w, "You must send your request in POST.", 405)
