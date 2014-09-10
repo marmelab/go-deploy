@@ -8,18 +8,26 @@ import (
 )
 
 func processRequest(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if e := recover(); e != nil {
+			errorMsg := fmt.Sprintf("%q", e)
+			http.Error(w, errorMsg, 400)
+		}
+	}()
 	if r.Method == "POST" {
 		var testJson string
-		testJson = `{"GitRef":"alexisjanvier/projettest","Branch":"master", "Tag":""}`
+		testJson = `{"GitRef":"alexisjanvier/projettest","Branch":"master", "Tag":"", "Target":"master"}`
 		byt := []byte(testJson)
 		var newDeploy deployment.Deployment
 
 		if err := json.Unmarshal(byt, &newDeploy); err != nil {
 			panic(err)
 		}
-		fmt.Println(newDeploy)
+		if jsonValid, erroMsg := newDeploy.IsValid(); !jsonValid {
+			panic(erroMsg)
+		}
 
-		fmt.Fprintf(w, "Welcome to the Deployed Pull Requests Webservice (you asked %q)", r.URL.Path[1:])
+		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", newDeploy.Target)
 	} else {
 		http.Error(w, "You must send your request in POST.", 405)
 	}
