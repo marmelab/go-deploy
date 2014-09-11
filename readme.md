@@ -5,5 +5,12 @@ The idea is that when deploying project, the deployment tool used should launch 
 Then DPR will identify all the PR merged on the deployed code (since the last deploy), and automatically write a new comment on **github** PR, indicating that this PR has been deployed and on which target.    
 The goal is to help developers to more easily identify which code is deployed, and where.    
 
+## Dependencies
+
+You must install the [go-github](https://github.com/google/go-github) library
+
+    go get github.com/google/go-github
+    go get github.com/google/go-querystring
+
 ## This is a POC
 The project is just started, and do nothing for the moment.    
