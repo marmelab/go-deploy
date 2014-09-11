@@ -6,27 +6,32 @@ import (
 )
 
 type Project struct {
-	Owner string
-	Repo  string
+	Owner        string
+	Repo         string
+	PullRequests map[int]PullRequest
 }
 
-func (project *Project) GetClosedPullRequests() bool {
+func (project *Project) GetClosedPullRequests() {
 	client := github.NewClient(nil)
 	opt := &github.PullRequestListOptions{State: "closed"}
 	prs, _, err := client.PullRequests.List(project.Owner, project.Repo, opt)
 	if err != nil {
+		//TODO use panic()
 		fmt.Printf("error: %v\n\n", err)
 	} else {
+		//fmt.Printf("State: %v\n", *prs[0].Number)
+		project.PullRequests = make(map[int]PullRequest)
 		for _, pr := range prs {
-			fmt.Println("\n\n\n############")
-			fmt.Printf("Number: %v\n", github.Stringify(pr.Number))
-			fmt.Printf("State: %v\n", github.Stringify(pr.State))
-			fmt.Printf("Title: %v\n", github.Stringify(pr.Title))
-			fmt.Printf("Head label: %v\n", github.Stringify(pr.Head.Label))
-			fmt.Printf("Head sha: %v\n", github.Stringify(pr.Head.SHA))
-			fmt.Printf("Base label: %v", github.Stringify(pr.Base.Label))
+			pullr := PullRequest{
+				Number:  *pr.Number,
+				Title:   *pr.Title,
+				HeadRef: *pr.Head.Ref,
+				HeadSHA: *pr.Head.SHA,
+				Status:  *pr.State}
+			pullr.getMergeSHA(project.Owner, project.Repo)
+			project.PullRequests[pullr.Number] = pullr
 		}
 	}
 
-	return true
+	return
 }
