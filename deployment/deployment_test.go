@@ -31,3 +31,14 @@ func TestDeploymentWithBranchAndTagIsNotValid(t *testing.T) {
 		t.Error("isValid() on Deployment with Branch and Tag should return false")
 	}
 }
+
+func TestGetProjectFromValidDeployReturnValidProject(t *testing.T) {
+	deploy := Deployment{GitRef: "alexisjanvier/dummy-project", Branch: "master", Tag: "v1", Target: "prod"}
+	project, _ := deploy.GetProject()
+	if project.Owner != "alexisjanvier" {
+		t.Error("Deployment with alexisjanvier/dummy-project GitRef shoud return a project where owner is alexisjanvier")
+	}
+	if project.Repo != "dummy-project" {
+		t.Error("Deployment with alexisjanvier/dummy-project GitRef shoud return a project where repo is dummy-project")
+	}
+}

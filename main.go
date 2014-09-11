@@ -23,7 +23,14 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		if jsonValid, erroMsg := newDeploy.IsValid(); !jsonValid {
 			panic(erroMsg)
 		}
+		project, err := newDeploy.GetProject()
+		fmt.Printf("Et bien %v\n", project)
+		fmt.Sprint(project)
+		if err != nil {
+			panic(err)
+		}
 		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", newDeploy.Target)
+		project.GetClosedPullRequests()
 	} else {
 		http.Error(w, "You must send your request in POST.", 405)
 	}
