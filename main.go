@@ -1,8 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/alexisjanvier/deployedpr/deployment"
-	"encoding/json"
+	"bitbucket.org/alexisjanvier/deployedpr/deptools"
 	"fmt"
 	"net/http"
 )
@@ -15,24 +14,30 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	if r.Method == "POST" {
-		decoder := json.NewDecoder(r.Body)
-		var newDeploy deployment.Deployment
-		if err := decoder.Decode(&newDeploy); err != nil {
-			panic(err)
+		var requestAnalyser deptools.RequestAnalyser
+		owner, repo, baseType, baseName, target, parseError := requestAnalyser.Parse(r)
+		if parseError != nil {
+			panic(parseError)
 		}
-		if jsonValid, erroMsg := newDeploy.IsValid(); !jsonValid {
-			panic(erroMsg)
-		}
-		project, err := newDeploy.GetProject()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", newDeploy.Target)
-		project.GetClosedPullRequests()
-		project.GetCommitsOnBranch(newDeploy.Branch)
-		project.GetPrMergedOnBranch()
-		fmt.Printf("%v", project)
 
+		project := deptools.Project{Owner: owner, Repo: repo}
+		if projectConfigError := project.IsConfig(); projectConfigError != nil {
+			panic(projectConfigError)
+		}
+
+		deploy := deptools.Deployment{Project: project, BaseType: baseType, BaseName: baseName, Target: target}
+		if baseExist, baseError := deploy.BaseExist(); !baseExist {
+			panic(baseError)
+		}
+		pullRequestsCommented, commentError := deploy.CommentPrContainedInDeploy()
+		if commentError != nil {
+			panic(nil)
+		}
+		if pullRequestsCommented == "" {
+			fmt.Fprintf(w, "There were no PR to comment on this deployment to %q", target)
+		}
+
+		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", target)
 	} else {
 		http.Error(w, "You must send your request in POST.", 405)
 	}

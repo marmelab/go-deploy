@@ -1,4 +1,4 @@
-package deployment
+package deptools
 
 import (
 	"testing"

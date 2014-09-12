@@ -11,6 +11,7 @@ You must install the [go-github](https://github.com/google/go-github) library
 
     go get github.com/google/go-github
     go get github.com/google/go-querystring
+    go get -u code.google.com/p/goauth2/oauth
 
 ## This is a POC
 The project is just started, and do nothing for the moment.    
