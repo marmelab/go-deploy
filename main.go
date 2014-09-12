@@ -26,7 +26,7 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		deploy := deptools.Deployment{Project: project, BaseType: baseType, BaseName: baseName, Target: target}
-		if baseExist, baseError := deploy.BaseExist(); !baseExist {
+		if baseExist, baseError := deploy.BaseExist(); !baseExist || baseError != nil {
 			panic(baseError)
 		}
 		pullRequestsCommented, commentError := deploy.CommentPrContainedInDeploy()

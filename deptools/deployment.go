@@ -25,8 +25,47 @@ type PullRequest struct {
 }
 
 func (dpl *Deployment) BaseExist() (bool, error) {
-	// TODO Check if tag or branch exist in repo
-	return true, nil
+	if dpl.BaseType == "tag" {
+		exist, err := dpl.tagExist()
+		return exist, err
+	} else {
+		exist, err := dpl.branchExist()
+		return exist, err
+	}
+}
+
+//TODO refactoring these two identical functions by regulating the type signature issues
+func (dpl *Deployment) tagExist() (bool, error) {
+	client := dpl.getGithubAccessClient()
+	opt := &github.ListOptions{}
+	tags, _, err := client.Repositories.ListTags(dpl.Project.Owner, dpl.Project.Repo, opt)
+	if err != nil {
+		return false, err
+	} else {
+		for _, tag := range tags {
+			if *tag.Name == dpl.BaseName {
+				return true, nil
+			}
+		}
+	}
+	tagNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Project.Repo)
+	return false, tagNotFound
+}
+func (dpl *Deployment) branchExist() (bool, error) {
+	client := dpl.getGithubAccessClient()
+	opt := &github.ListOptions{}
+	branches, _, err := client.Repositories.ListBranches(dpl.Project.Owner, dpl.Project.Repo, opt)
+	if err != nil {
+		return false, err
+	} else {
+		for _, branch := range branches {
+			if *branch.Name == dpl.BaseName {
+				return true, nil
+			}
+		}
+	}
+	branchNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Project.Repo)
+	return false, branchNotFound
 }
 
 func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
