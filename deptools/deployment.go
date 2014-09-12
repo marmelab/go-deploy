@@ -49,7 +49,7 @@ func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 }
 
 func (dpl *Deployment) getClosedPullRequests() error {
-	client := github.NewClient(nil)
+	client := dpl.getGithubAccessClient()
 	opt := &github.PullRequestListOptions{State: "closed"}
 	prs, _, err := client.PullRequests.List(dpl.Project.Owner, dpl.Project.Repo, opt)
 	if err != nil {
@@ -71,7 +71,7 @@ func (dpl *Deployment) getClosedPullRequests() error {
 
 func (dpl *Deployment) getCommitsOnBase() error {
 	//TODO make case where baseType is tag
-	client := github.NewClient(nil)
+	client := dpl.getGithubAccessClient()
 	opt := &github.CommitsListOptions{SHA: dpl.BaseName}
 	commits, _, err := client.Repositories.ListCommits(dpl.Project.Owner, dpl.Project.Repo, opt)
 	if err != nil {
@@ -95,10 +95,7 @@ func (dpl *Deployment) setPrMergedOnBase() {
 }
 
 func (dpl *Deployment) commentMergedPR() error {
-	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: dpl.Project.AccessToken},
-	}
-	client := github.NewClient(t.Client())
+	client := dpl.getGithubAccessClient()
 	msg := fmt.Sprintf("This pull Request as been deployed on %v", dpl.Target)
 	comment := &github.IssueComment{Body: &msg}
 	for _, prNumber := range dpl.PullRequestMergedOnBase {
@@ -109,4 +106,12 @@ func (dpl *Deployment) commentMergedPR() error {
 		}
 	}
 	return nil
+}
+
+func (dpl *Deployment) getGithubAccessClient() *github.Client {
+	t := &oauth.Transport{
+		Token: &oauth.Token{AccessToken: dpl.Project.AccessToken},
+	}
+	client := github.NewClient(t.Client())
+	return client
 }
