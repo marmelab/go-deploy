@@ -37,7 +37,7 @@ func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 	if getCommitError := dpl.getCommitsOnBase(); getCommitError != nil {
 		return "", getCommitError
 	}
-	// 3)On croise
+
 	dpl.setPrMergedOnBase()
 	if nbPrToComment := len(dpl.PullRequestMergedOnBase); nbPrToComment < 1 {
 		return "", nil
