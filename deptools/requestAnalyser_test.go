@@ -1,44 +1,57 @@
 package deptools
 
 import (
+	"bytes"
+	"net/http"
 	"testing"
 )
 
-func TestDeploymentWithoutGitRefIsNotValid(t *testing.T) {
-	deploy := Deployment{Branch: "master", Target: "prod"}
-	if jsonValid, _ := deploy.IsValid(); jsonValid {
-		t.Error("isValid() on Deployment without GitRef should return false")
+func TestRequestAnalyserWithoutOwnerInRequestReturnFalse(t *testing.T) {
+	postJson := []byte(`{"Repo": "carenelec-y3b", "BaseType": "branch", "BaseName": "master", "Target": "Prod"}`)
+	request, _ := http.NewRequest("POST", "/", bytes.NewReader(postJson))
+	var requestAnalyser RequestAnalyser
+	_, _, _, _, _, parseError := requestAnalyser.Parse(request)
+	if parseError == nil {
+		t.Error("isValid() on request without Owner should return false")
 	}
 }
 
-func TestDeploymentWithoutTargetIsNotValid(t *testing.T) {
-	deploy := Deployment{GitRef: "alexisjanvier/dummy-project", Branch: "master"}
-	if jsonValid, _ := deploy.IsValid(); jsonValid {
-		t.Error("isValid() on Deployment without Target should return false")
+func TestRequestAnalyserWithoutRepoInRequestReturnFalse(t *testing.T) {
+	postJson := []byte(`{"Owner":"alexisjanvier", "BaseType": "branch", "BaseName": "master", "Target": "Prod"}`)
+	request, _ := http.NewRequest("POST", "/", bytes.NewReader(postJson))
+	var requestAnalyser RequestAnalyser
+	_, _, _, _, _, parseError := requestAnalyser.Parse(request)
+	if parseError == nil {
+		t.Error("isValid() on request without Repo should return false")
 	}
 }
 
-func TestDeploymentWithoutBranchOrTagIsNotValid(t *testing.T) {
-	deploy := Deployment{GitRef: "alexisjanvier/dummy-project", Target: "prod"}
-	if jsonValid, _ := deploy.IsValid(); jsonValid {
-		t.Error("isValid() on Deployment without Branch or Tag should return false")
+func TestRequestAnalyserWithoutBaseTypeInRequestReturnFalse(t *testing.T) {
+	postJson := []byte(`{"Owner":"alexisjanvier", "Repo": "carenelec-y3b", "BaseName": "master", "Target": "Prod"}`)
+	request, _ := http.NewRequest("POST", "/", bytes.NewReader(postJson))
+	var requestAnalyser RequestAnalyser
+	_, _, _, _, _, parseError := requestAnalyser.Parse(request)
+	if parseError == nil {
+		t.Error("isValid() on request without BaseType should return false")
 	}
 }
 
-func TestDeploymentWithBranchAndTagIsNotValid(t *testing.T) {
-	deploy := Deployment{GitRef: "alexisjanvier/dummy-project", Branch: "master", Tag: "v1", Target: "prod"}
-	if jsonValid, _ := deploy.IsValid(); jsonValid {
-		t.Error("isValid() on Deployment with Branch and Tag should return false")
+func TestRequestAnalyserWithoutBaseNameInRequestReturnFalse(t *testing.T) {
+	postJson := []byte(`{"Owner":"alexisjanvier", "Repo": "carenelec-y3b", "BaseType": "branch", "Target": "Prod"}`)
+	request, _ := http.NewRequest("POST", "/", bytes.NewReader(postJson))
+	var requestAnalyser RequestAnalyser
+	_, _, _, _, _, parseError := requestAnalyser.Parse(request)
+	if parseError == nil {
+		t.Error("isValid() on request without BaseName should return false")
 	}
 }
 
-func TestGetProjectFromValidDeployReturnValidProject(t *testing.T) {
-	deploy := Deployment{GitRef: "alexisjanvier/dummy-project", Branch: "master", Tag: "v1", Target: "prod"}
-	project, _ := deploy.GetProject()
-	if project.Owner != "alexisjanvier" {
-		t.Error("Deployment with alexisjanvier/dummy-project GitRef shoud return a project where owner is alexisjanvier")
-	}
-	if project.Repo != "dummy-project" {
-		t.Error("Deployment with alexisjanvier/dummy-project GitRef shoud return a project where repo is dummy-project")
+func TestRequestAnalyserWithoutTargetInRequestReturnFalse(t *testing.T) {
+	postJson := []byte(`{"Owner":"alexisjanvier", "Repo": "carenelec-y3b", "BaseType": "branch", "BaseName": "master"}`)
+	request, _ := http.NewRequest("POST", "/", bytes.NewReader(postJson))
+	var requestAnalyser RequestAnalyser
+	_, _, _, _, _, parseError := requestAnalyser.Parse(request)
+	if parseError == nil {
+		t.Error("isValid() on request without Target should return false")
 	}
 }
