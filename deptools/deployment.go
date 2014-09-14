@@ -10,6 +10,7 @@ type Deployment struct {
 	Project                 Project
 	BaseType                string
 	BaseName                string
+	BaseTagSHA              string
 	Target                  string
 	PullRequests            map[string]PullRequest
 	CommitsOnDeployedBase   map[string]string
@@ -44,6 +45,7 @@ func (dpl *Deployment) tagExist() (bool, error) {
 	} else {
 		for _, tag := range tags {
 			if *tag.Name == dpl.BaseName {
+				dpl.BaseTagSHA = *tag.Commit.SHA
 				return true, nil
 			}
 		}
@@ -109,9 +111,14 @@ func (dpl *Deployment) getClosedPullRequests() error {
 }
 
 func (dpl *Deployment) getCommitsOnBase() error {
-	//TODO make case where baseType is tag
+	var searchBaseName string
+	if dpl.BaseType == "tag" {
+		searchBaseName = string(dpl.BaseTagSHA)
+	} else {
+		searchBaseName = string(dpl.BaseName)
+	}
 	client := dpl.getGithubAccessClient()
-	opt := &github.CommitsListOptions{SHA: dpl.BaseName}
+	opt := &github.CommitsListOptions{SHA: searchBaseName}
 	commits, _, err := client.Repositories.ListCommits(dpl.Project.Owner, dpl.Project.Repo, opt)
 	if err != nil {
 		return err
@@ -135,7 +142,7 @@ func (dpl *Deployment) setPrMergedOnBase() {
 
 func (dpl *Deployment) commentMergedPR() error {
 	client := dpl.getGithubAccessClient()
-	msg := fmt.Sprintf("This pull Request as been deployed on %v", dpl.Target)
+	msg := fmt.Sprintf("This pull Request as been deployed on %v (from the %v %v)", dpl.Target, dpl.BaseType, dpl.BaseName)
 	comment := &github.IssueComment{Body: &msg}
 	for _, prNumber := range dpl.PullRequestMergedOnBase {
 		// TODO get created comment and save it somewhere commentPr, _, err
