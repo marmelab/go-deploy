@@ -4,6 +4,7 @@ import (
 	"bitbucket.org/alexisjanvier/deployedpr/deptools"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 func processRequest(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,15 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 			panic(projectConfigError)
 		}
 
-		deploy := deptools.Deployment{Project: project, BaseType: baseType, BaseName: baseName, Target: target}
+		deploy := deptools.Deployment{
+			Owner:       owner,
+			Repository:  repo,
+			AccessToken: project.AccessToken,
+			BaseType:    baseType,
+			BaseName:    baseName,
+			Target:      target,
+			CreatedAt:   time.Now(),
+		}
 		if baseExist, baseError := deploy.BaseExist(); !baseExist || baseError != nil {
 			panic(baseError)
 		}

@@ -4,25 +4,33 @@ import (
 	"code.google.com/p/goauth2/oauth"
 	"fmt"
 	"github.com/google/go-github/github"
+	"gopkg.in/mgo.v2"
+	//"gopkg.in/mgo.v2/bson"
+	"time"
 )
 
 type Deployment struct {
-	Project                 Project
-	BaseType                string
-	BaseName                string
-	BaseTagSHA              string
-	Target                  string
-	PullRequests            map[string]PullRequest
-	CommitsOnDeployedBase   map[string]string
-	PullRequestMergedOnBase map[string]int
+	Owner                   string                 `bson:"owner"`
+	Repository              string                 `bson:"repository"`
+	AccessToken             string                 `bson:"-"`
+	BaseType                string                 `bson:"base_type"`
+	BaseName                string                 `bson:"base_name"`
+	BaseTagSHA              string                 `bson:"-"`
+	Target                  string                 `bson:"target"`
+	PullRequests            map[string]PullRequest `bson:"-"`
+	CommitsOnDeployedBase   map[string]string      `bson:"-"`
+	PullRequestMergedOnBase map[string]int         `bson:"prs_merged"`
+	LastPrMergeDate         time.Time              `bson:"last_pr_merge_date"`
+	CreatedAt               time.Time              `bson:"created_at"`
 }
 
 type PullRequest struct {
-	Number  int
-	Title   string
-	HeadRef string
-	HeadSHA string
-	Status  string
+	Number   int
+	Title    string
+	HeadRef  string
+	HeadSHA  string
+	Status   string
+	MergedAt time.Time
 }
 
 func (dpl *Deployment) BaseExist() (bool, error) {
@@ -39,7 +47,7 @@ func (dpl *Deployment) BaseExist() (bool, error) {
 func (dpl *Deployment) tagExist() (bool, error) {
 	client := dpl.getGithubAccessClient()
 	opt := &github.ListOptions{}
-	tags, _, err := client.Repositories.ListTags(dpl.Project.Owner, dpl.Project.Repo, opt)
+	tags, _, err := client.Repositories.ListTags(dpl.Owner, dpl.Repository, opt)
 	if err != nil {
 		return false, err
 	} else {
@@ -50,13 +58,13 @@ func (dpl *Deployment) tagExist() (bool, error) {
 			}
 		}
 	}
-	tagNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Project.Repo)
+	tagNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Repository)
 	return false, tagNotFound
 }
 func (dpl *Deployment) branchExist() (bool, error) {
 	client := dpl.getGithubAccessClient()
 	opt := &github.ListOptions{}
-	branches, _, err := client.Repositories.ListBranches(dpl.Project.Owner, dpl.Project.Repo, opt)
+	branches, _, err := client.Repositories.ListBranches(dpl.Owner, dpl.Repository, opt)
 	if err != nil {
 		return false, err
 	} else {
@@ -66,7 +74,7 @@ func (dpl *Deployment) branchExist() (bool, error) {
 			}
 		}
 	}
-	branchNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Project.Repo)
+	branchNotFound := fmt.Errorf("%v %v not found on %v", dpl.BaseType, dpl.BaseName, dpl.Repository)
 	return false, branchNotFound
 }
 
@@ -92,18 +100,19 @@ func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 func (dpl *Deployment) getClosedPullRequests() error {
 	client := dpl.getGithubAccessClient()
 	opt := &github.PullRequestListOptions{State: "closed"}
-	prs, _, err := client.PullRequests.List(dpl.Project.Owner, dpl.Project.Repo, opt)
+	prs, _, err := client.PullRequests.List(dpl.Owner, dpl.Repository, opt)
 	if err != nil {
 		return err
 	} else {
 		dpl.PullRequests = make(map[string]PullRequest)
 		for _, pr := range prs {
 			pullr := PullRequest{
-				Number:  *pr.Number,
-				Title:   *pr.Title,
-				HeadRef: *pr.Head.Ref,
-				HeadSHA: *pr.Head.SHA,
-				Status:  *pr.State}
+				Number:   *pr.Number,
+				Title:    *pr.Title,
+				HeadRef:  *pr.Head.Ref,
+				HeadSHA:  *pr.Head.SHA,
+				Status:   *pr.State,
+				MergedAt: *pr.MergedAt}
 			dpl.PullRequests[pullr.HeadSHA] = pullr
 		}
 	}
@@ -119,7 +128,7 @@ func (dpl *Deployment) getCommitsOnBase() error {
 	}
 	client := dpl.getGithubAccessClient()
 	opt := &github.CommitsListOptions{SHA: searchBaseName}
-	commits, _, err := client.Repositories.ListCommits(dpl.Project.Owner, dpl.Project.Repo, opt)
+	commits, _, err := client.Repositories.ListCommits(dpl.Owner, dpl.Repository, opt)
 	if err != nil {
 		return err
 	} else {
@@ -136,6 +145,9 @@ func (dpl *Deployment) setPrMergedOnBase() {
 	for commitSha, _ := range dpl.CommitsOnDeployedBase {
 		if mergedPullRequest, found := dpl.PullRequests[commitSha]; found {
 			dpl.PullRequestMergedOnBase[mergedPullRequest.HeadSHA] = mergedPullRequest.Number
+			if mergedPullRequest.MergedAt.After(dpl.LastPrMergeDate) {
+				dpl.LastPrMergeDate = mergedPullRequest.MergedAt
+			}
 		}
 	}
 }
@@ -146,17 +158,33 @@ func (dpl *Deployment) commentMergedPR() error {
 	comment := &github.IssueComment{Body: &msg}
 	for _, prNumber := range dpl.PullRequestMergedOnBase {
 		// TODO get created comment and save it somewhere commentPr, _, err
-		_, _, err := client.Issues.CreateComment(dpl.Project.Owner, dpl.Project.Repo, prNumber, comment)
+		_, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prNumber, comment)
 		if err != nil {
 			return err
 		}
 	}
+	dpl.save()
 	return nil
+}
+
+func (dpl *Deployment) save() {
+	sess, err := mgo.Dial("localhost")
+	if err != nil {
+		fmt.Printf("Erreur de connexion a Mongodb : %v", err)
+	}
+	defer sess.Close()
+	sess.SetSafe(&mgo.Safe{})
+
+	collection := sess.DB("deployedPullRequests").C("deployments")
+	err = collection.Insert(dpl)
+	if err != nil {
+		fmt.Printf("Erreur a la sauvegarde du deploiement : %v", err)
+	}
 }
 
 func (dpl *Deployment) getGithubAccessClient() *github.Client {
 	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: dpl.Project.AccessToken},
+		Token: &oauth.Token{AccessToken: dpl.AccessToken},
 	}
 	client := github.NewClient(t.Client())
 	return client
