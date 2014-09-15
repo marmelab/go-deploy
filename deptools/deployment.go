@@ -153,11 +153,11 @@ func (dpl *Deployment) setPrMergedOnBase() {
 
 func (dpl *Deployment) commentMergedPR() error {
 	client := dpl.getGithubAccessClient()
-	msg := fmt.Sprintf("This pull Request as been deployed on %v (from the %v %v)", dpl.Target, dpl.BaseType, dpl.BaseName)
+	msg := fmt.Sprintf("This PR was deployed to %v (from the %v %v)", dpl.Target, dpl.BaseType, dpl.BaseName)
 	comment := &github.IssueComment{Body: &msg}
 	for _, prToComment := range dpl.PullRequestMergedOnBase {
 		if hasAlreadyBeenCommented := prToComment.hasBeenDeployTo(dpl.Target); !hasAlreadyBeenCommented {
-			commentPr, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prToComment.Number, comment)
+			_, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prToComment.Number, comment)
 			if err != nil {
 				return err
 			}

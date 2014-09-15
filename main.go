@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-func processRequest(w http.ResponseWriter, r *http.Request) {
+func processRequest(response http.ResponseWriter, r *http.Request) {
 	defer func() {
-		if e := recover(); e != nil {
-			errorMsg := fmt.Sprintf("%q", e)
-			http.Error(w, errorMsg, 400)
+		if panicError := recover(); panicError != nil {
+			errorMsg := fmt.Sprintf("%q", panicError)
+			http.Error(response, errorMsg, 400)
 		}
 	}()
 	if r.Method != "POST" {
-		http.Error(w, "You must send your request in POST.", 405)
+		http.Error(response, "You must send your request in POST.", 405)
 		return
 	}
 	var requestAnalyser deptools.RequestAnalyser
@@ -46,11 +46,12 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		panic(nil)
 	}
 	if pullRequestsCommented == "" {
-		fmt.Fprintf(w, "There were no PR to comment on this deployment to %q", target)
+		fmt.Fprintf(response, "There was no PR to comment on this deployment to %q", target)
+	} else {
+		fmt.Fprintf(response, "The PR contained in this deployment on %q have been commented", target)
 	}
 
-	fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", target)
-
+	return
 }
 
 func main() {
