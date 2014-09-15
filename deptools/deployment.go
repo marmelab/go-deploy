@@ -19,18 +19,26 @@ type Deployment struct {
 	Target                  string                 `bson:"target"`
 	PullRequests            map[string]PullRequest `bson:"-"`
 	CommitsOnDeployedBase   map[string]string      `bson:"-"`
-	PullRequestMergedOnBase map[string]int         `bson:"prs_merged"`
+	PullRequestMergedOnBase map[string]PullRequest `bson:"prs_merged"`
 	LastPrMergeDate         time.Time              `bson:"last_pr_merge_date"`
 	CreatedAt               time.Time              `bson:"created_at"`
 }
 
 type PullRequest struct {
-	Number   int
-	Title    string
-	HeadRef  string
-	HeadSHA  string
-	Status   string
-	MergedAt time.Time
+	Number     int               `bson:"number"`
+	Title      string            `bson:"title"`
+	HeadRef    string            `bson:"header_ref"`
+	HeadSHA    string            `bson:"header_sha"`
+	Status     string            `bson:"status"`
+	MergedAt   time.Time         `bson:"merged_at"`
+	DeployedTo map[string]Target `bson:"deployed_to"`
+}
+
+type Target struct {
+	Name        string    `bson:"name"`
+	DeployedAt  time.Time `bson:"deployed_at"`
+	CommentedAt time.Time `bson:"commented_at"`
+	CommentId   int       `bson:"comment_id"`
 }
 
 func (dpl *Deployment) BaseExist() (bool, error) {
@@ -94,6 +102,7 @@ func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 	if commentError := dpl.commentMergedPR(); commentError != nil {
 		return "", commentError
 	}
+
 	return "DONE", nil
 }
 
@@ -141,10 +150,10 @@ func (dpl *Deployment) getCommitsOnBase() error {
 }
 
 func (dpl *Deployment) setPrMergedOnBase() {
-	dpl.PullRequestMergedOnBase = make(map[string]int)
+	dpl.PullRequestMergedOnBase = make(map[string]PullRequest)
 	for commitSha, _ := range dpl.CommitsOnDeployedBase {
 		if mergedPullRequest, found := dpl.PullRequests[commitSha]; found {
-			dpl.PullRequestMergedOnBase[mergedPullRequest.HeadSHA] = mergedPullRequest.Number
+			dpl.PullRequestMergedOnBase[mergedPullRequest.HeadSHA] = mergedPullRequest
 			if mergedPullRequest.MergedAt.After(dpl.LastPrMergeDate) {
 				dpl.LastPrMergeDate = mergedPullRequest.MergedAt
 			}
@@ -156,12 +165,20 @@ func (dpl *Deployment) commentMergedPR() error {
 	client := dpl.getGithubAccessClient()
 	msg := fmt.Sprintf("This pull Request as been deployed on %v (from the %v %v)", dpl.Target, dpl.BaseType, dpl.BaseName)
 	comment := &github.IssueComment{Body: &msg}
-	for _, prNumber := range dpl.PullRequestMergedOnBase {
-		// TODO get created comment and save it somewhere commentPr, _, err
-		_, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prNumber, comment)
+	for _, prToComment := range dpl.PullRequestMergedOnBase {
+		commentPr, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prToComment.Number, comment)
 		if err != nil {
 			return err
 		}
+		prToComment.DeployedTo = make(map[string]Target)
+		targetDeployed := Target{
+			Name:        dpl.Target,
+			DeployedAt:  time.Now(),
+			CommentedAt: *commentPr.CreatedAt,
+			CommentId:   *commentPr.ID,
+		}
+		prToComment.DeployedTo[dpl.Target] = targetDeployed
+		prToComment.save()
 	}
 	dpl.save()
 	return nil
@@ -179,6 +196,21 @@ func (dpl *Deployment) save() {
 	err = collection.Insert(dpl)
 	if err != nil {
 		fmt.Printf("Erreur a la sauvegarde du deploiement : %v", err)
+	}
+}
+
+func (pr *PullRequest) save() {
+	sess, err := mgo.Dial("localhost")
+	if err != nil {
+		fmt.Printf("Erreur de connexion a Mongodb : %v", err)
+	}
+	defer sess.Close()
+	sess.SetSafe(&mgo.Safe{})
+
+	collection := sess.DB("deployedPullRequests").C("pullrequests")
+	err = collection.Insert(pr)
+	if err != nil {
+		fmt.Printf("Erreur a la sauvegarde de la pull request : %v", err)
 	}
 }
 
