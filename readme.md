@@ -13,7 +13,7 @@ Project depends on some packages (mainly about github api)
 
 ## Configure
 
-You must configure the project on which you want to test DPR. For that, you have to copy config.dist to config.json. When it's done, you must add informations about :
+You must configure the project on which you want to test DPR. For that, you have to copy config.json-dist to config.json. When it's done, you must add informations about :
 
 * **Owner**: the github username of the project owner
 * **Repository**:   the repository name of the project for which you wish to comment deployed PR 
