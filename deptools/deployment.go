@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/google/go-github/github"
 	"gopkg.in/mgo.v2"
-	//"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 	"time"
 )
 
@@ -129,6 +129,7 @@ func (dpl *Deployment) getClosedPullRequests() error {
 }
 
 func (dpl *Deployment) getCommitsOnBase() error {
+	lastPrMergedDate := dpl.getLastPrMergeDate()
 	var searchBaseName string
 	if dpl.BaseType == "tag" {
 		searchBaseName = string(dpl.BaseTagSHA)
@@ -136,7 +137,7 @@ func (dpl *Deployment) getCommitsOnBase() error {
 		searchBaseName = string(dpl.BaseName)
 	}
 	client := dpl.getGithubAccessClient()
-	opt := &github.CommitsListOptions{SHA: searchBaseName}
+	opt := &github.CommitsListOptions{SHA: searchBaseName, Since: lastPrMergedDate}
 	commits, _, err := client.Repositories.ListCommits(dpl.Owner, dpl.Repository, opt)
 	if err != nil {
 		return err
@@ -197,6 +198,28 @@ func (dpl *Deployment) save() {
 	if err != nil {
 		fmt.Printf("Erreur a la sauvegarde du deploiement : %v", err)
 	}
+}
+
+func (dpl *Deployment) getLastPrMergeDate() time.Time {
+
+	sess, err := mgo.Dial("localhost")
+	if err != nil {
+		fmt.Printf("Erreur de connexion a Mongodb : %v", err)
+	}
+	defer sess.Close()
+	sess.SetSafe(&mgo.Safe{})
+
+	var saveDeploy Deployment
+	err = sess.DB("deployedPullRequests").
+		C("deployments").
+		Find(bson.M{"owner": "alexisjanvier", "repository": "dummy-project", "base_type": "branch", "base_name": "master", "target": "Dev"}).
+		Sort("-last_pr_merge_date").
+		One(&saveDeploy)
+	if err != nil {
+		return time.Now().Add(-2 * 7 * 24 * time.Hour)
+	}
+
+	return saveDeploy.LastPrMergeDate
 }
 
 func (pr *PullRequest) save() {
