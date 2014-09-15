@@ -12,16 +12,6 @@ type Project struct {
 	AccessToken string
 }
 
-type Configuration struct {
-	Projects []ProjectConf
-}
-
-type ProjectConf struct {
-	Owner       string
-	Repository  string
-	AccessToken string
-}
-
 func (project *Project) IsConfig() error {
 	file, readFileError := ioutil.ReadFile("./config.json")
 	if readFileError != nil {

@@ -32,9 +32,9 @@ func (ra *RequestAnalyser) Parse(r *http.Request) (owner string, repo string, ba
 
 }
 
-func (ra *RequestAnalyser) IsValid() (isValid bool, errorMsg string) {
-	isValid = true
-	errorMsg = ""
+func (ra *RequestAnalyser) IsValid() (bool, string) {
+	isValid := true
+	errorMsg := ""
 	if ra.Owner == "" {
 		isValid = false
 		errorMsg = fmt.Sprintf("Owner must be set in your json %s", errorMsg)
@@ -55,5 +55,6 @@ func (ra *RequestAnalyser) IsValid() (isValid bool, errorMsg string) {
 		isValid = false
 		errorMsg = fmt.Sprintf("Target must be set in your json, not both %s", errorMsg)
 	}
-	return
+
+	return isValid, errorMsg
 }
