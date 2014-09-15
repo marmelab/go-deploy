@@ -14,42 +14,43 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, errorMsg, 400)
 		}
 	}()
-	if r.Method == "POST" {
-		var requestAnalyser deptools.RequestAnalyser
-		owner, repo, baseType, baseName, target, parseError := requestAnalyser.Parse(r)
-		if parseError != nil {
-			panic(parseError)
-		}
-
-		project := deptools.Project{Owner: owner, Repo: repo}
-		if projectConfigError := project.IsConfig(); projectConfigError != nil {
-			panic(projectConfigError)
-		}
-
-		deploy := deptools.Deployment{
-			Owner:       owner,
-			Repository:  repo,
-			AccessToken: project.AccessToken,
-			BaseType:    baseType,
-			BaseName:    baseName,
-			Target:      target,
-			CreatedAt:   time.Now(),
-		}
-		if baseExist, baseError := deploy.BaseExist(); !baseExist || baseError != nil {
-			panic(baseError)
-		}
-		pullRequestsCommented, commentError := deploy.CommentPrContainedInDeploy()
-		if commentError != nil {
-			panic(nil)
-		}
-		if pullRequestsCommented == "" {
-			fmt.Fprintf(w, "There were no PR to comment on this deployment to %q", target)
-		}
-
-		fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", target)
-	} else {
+	if r.Method != "POST" {
 		http.Error(w, "You must send your request in POST.", 405)
+		return
 	}
+	var requestAnalyser deptools.RequestAnalyser
+	owner, repo, baseType, baseName, target, parseError := requestAnalyser.Parse(r)
+	if parseError != nil {
+		panic(parseError)
+	}
+
+	project := deptools.Project{Owner: owner, Repo: repo}
+	if projectConfigError := project.IsConfig(); projectConfigError != nil {
+		panic(projectConfigError)
+	}
+
+	deploy := deptools.Deployment{
+		Owner:       owner,
+		Repository:  repo,
+		AccessToken: project.AccessToken,
+		BaseType:    baseType,
+		BaseName:    baseName,
+		Target:      target,
+		CreatedAt:   time.Now(),
+	}
+	if baseExist, baseError := deploy.BaseExist(); !baseExist || baseError != nil {
+		panic(baseError)
+	}
+	pullRequestsCommented, commentError := deploy.CommentPrContainedInDeploy()
+	if commentError != nil {
+		panic(nil)
+	}
+	if pullRequestsCommented == "" {
+		fmt.Fprintf(w, "There were no PR to comment on this deployment to %q", target)
+	}
+
+	fmt.Fprintf(w, "Deployed PR will comment all PR deployed to %q", target)
+
 }
 
 func main() {

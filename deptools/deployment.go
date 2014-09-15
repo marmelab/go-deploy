@@ -19,7 +19,7 @@ type Deployment struct {
 	Target                  string                 `bson:"target"`
 	PullRequests            map[string]PullRequest `bson:"-"`
 	CommitsOnDeployedBase   map[string]string      `bson:"-"`
-	PullRequestMergedOnBase map[string]PullRequest `bson:"prs_merged"`
+	PullRequestMergedOnBase map[string]PullRequest `bson:"-"`
 	LastPrMergeDate         time.Time              `bson:"last_pr_merge_date"`
 	CreatedAt               time.Time              `bson:"created_at"`
 }
@@ -71,6 +71,7 @@ func (dpl *Deployment) branchExist() (bool, error) {
 
 func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 	if getPRError := dpl.getClosedPullRequests(); getPRError != nil {
+		fmt.Println("bim une erreur getClosedPullRequests")
 		return "", getPRError
 	}
 
@@ -90,7 +91,9 @@ func (dpl *Deployment) CommentPrContainedInDeploy() (string, error) {
 }
 
 func (dpl *Deployment) getClosedPullRequests() error {
+
 	//TODO limit the numebr of result, with Base Option ?
+	//TODO refactoring because if else -> for -> if ....
 	client := dpl.getGithubAccessClient()
 	opt := &github.PullRequestListOptions{State: "closed"}
 	prs, _, err := client.PullRequests.List(dpl.Owner, dpl.Repository, opt)
@@ -99,14 +102,16 @@ func (dpl *Deployment) getClosedPullRequests() error {
 	} else {
 		dpl.PullRequests = make(map[string]PullRequest)
 		for _, pr := range prs {
-			pullr := PullRequest{
-				Number:   *pr.Number,
-				Title:    *pr.Title,
-				HeadRef:  *pr.Head.Ref,
-				HeadSHA:  *pr.Head.SHA,
-				Status:   *pr.State,
-				MergedAt: *pr.MergedAt}
-			dpl.PullRequests[pullr.HeadSHA] = pullr
+			if pr.MergedAt != nil {
+				pullr := PullRequest{
+					Number:   *pr.Number,
+					Title:    *pr.Title,
+					HeadRef:  *pr.Head.Ref,
+					HeadSHA:  *pr.Head.SHA,
+					Status:   *pr.State,
+					MergedAt: *pr.MergedAt}
+				dpl.PullRequests[pullr.HeadSHA] = pullr
+			}
 		}
 	}
 	return nil
@@ -151,21 +156,12 @@ func (dpl *Deployment) commentMergedPR() error {
 	msg := fmt.Sprintf("This pull Request as been deployed on %v (from the %v %v)", dpl.Target, dpl.BaseType, dpl.BaseName)
 	comment := &github.IssueComment{Body: &msg}
 	for _, prToComment := range dpl.PullRequestMergedOnBase {
-		// Test if Pr has already be commented for this target
 		if hasAlreadyBeenCommented := prToComment.hasBeenDeployTo(dpl.Target); !hasAlreadyBeenCommented {
 			commentPr, _, err := client.Issues.CreateComment(dpl.Owner, dpl.Repository, prToComment.Number, comment)
 			if err != nil {
 				return err
 			}
-			prToComment.DeployedTo = make(map[string]Target)
-			targetDeployed := Target{
-				Name:        dpl.Target,
-				DeployedAt:  time.Now(),
-				CommentedAt: *commentPr.CreatedAt,
-				CommentId:   *commentPr.ID,
-			}
-			prToComment.DeployedTo[dpl.Target] = targetDeployed
-			prToComment.save()
+			prToComment.saveAsCommentToTarget(dpl.Target)
 		}
 	}
 	dpl.save()
