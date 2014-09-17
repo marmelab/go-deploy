@@ -1,0 +1,9 @@
+{
+    "Projects": [
+        {
+            "Owner": "username of project owner on gitub",
+            "Repository":   "project repository",
+            "AccessToken":  "your personnal access token generate on github Settings>Application"
+        }
+    ]
+}
