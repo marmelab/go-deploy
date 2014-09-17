@@ -45,7 +45,7 @@ func (dpl *Deployment) getLastPrMergeDate() time.Time {
 		return time.Now().Add(-2 * 7 * 24 * time.Hour)
 	}
 
-	return saveDeploy.last_pr_merge_date
+	return saveDeploy.Last_pr_merge_date
 }
 
 func (pr *PullRequest) hasBeenDeployTo(target string) bool {

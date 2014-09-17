@@ -19,7 +19,7 @@ type Deployment struct {
 	Target                      string                 `bson:"Target"`
 	Created_at                  time.Time              `bson:"created_at"`
 	Github_client               *github.Client         `bson:"-"`
-	last_pr_merge_date          time.Time              `bson:"last_pr_merge_date"`
+	Last_pr_merge_date          time.Time              `bson:"last_pr_merge_date"`
 	base_tag_SHA                string                 `bson:"-"`
 	pull_requests               map[string]PullRequest `bson:"-"`
 	commits_on_deployed_base    map[string]string      `bson:"-"`
@@ -158,9 +158,10 @@ func (dpl *Deployment) setPrMergedOnBase() {
 	for commitSha, _ := range dpl.commits_on_deployed_base {
 		if mergedPullRequest, found := dpl.pull_requests[commitSha]; found {
 			dpl.pull_request_merged_on_base[mergedPullRequest.HeadSHA] = mergedPullRequest
-			if mergedPullRequest.MergedAt.After(dpl.last_pr_merge_date) {
-				dpl.last_pr_merge_date = mergedPullRequest.MergedAt
+			if mergedPullRequest.MergedAt.After(dpl.Last_pr_merge_date) {
+				dpl.Last_pr_merge_date = mergedPullRequest.MergedAt
 			}
+			fmt.Println(".")
 		}
 	}
 }
